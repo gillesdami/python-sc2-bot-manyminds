@@ -17,3 +17,9 @@ Starting points:
 - Your bot code goes to `bot/main.py`
 - You can modify the `run_locally.py` starter script to your liking
 - Do not modify `start_bot.py` which is used by the competition runner scripts
+
+## ex
+
+```bash
+python3 train_locally.py --train modelv0/Zerg/KingsCoveLE/test.pkl --against dronerush/Zerg/KingsCoveLE/test.pkl --output test
+```
