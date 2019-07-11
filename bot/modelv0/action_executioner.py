@@ -11,7 +11,7 @@ class ActionExecutioner():
 
     @property
     def building_action_size(self):
-        return len(C.ZERG_BUILDINGS_IDS) * (1 + 1 + 1)
+        return len(C.ZERG_BUILDINGS_ZERGBUILD_TYPEIDS) * (1 + 1 + 1)
 
     async def building_executioner(self, actions):
         '''
@@ -27,13 +27,13 @@ class ActionExecutioner():
         priorities = np.take(actions, range(0, self.building_action_size, 3))
         priorities_sorted_idxs = priorities.argsort()
 
-        for idx in reversed(priorities_sorted_idxs):
-            if priorities[idx] < 0.5:
-                return
-            if self.can_afford(C.ZERG_BUILDINGS_IDS[idx]):
+        for idx in np.flip(priorities_sorted_idxs):
+            unit_typeid = C.ZERG_BUILDINGS_ZERGBUILD_TYPEIDS[idx]
+            
+            if priorities[idx] > 0.5 and self.can_afford(unit_typeid):
                 position = Point2([idx + 1, idx + 2])
-                await self.build(C.ZERG_BUILDINGS_IDS[idx], near=position)
-                return
+                await self.build(unit_typeid, near=position)
+                break
     
     @property
     def production_action_size(self):
@@ -46,17 +46,22 @@ class ActionExecutioner():
           - priority
 
         They result in the following abilities:
-        - self.do(larvae.random.train(<Unit_type_id>))
+        - self.do(self.units(LARVA).random.train(<Unit_type_id>))
         '''
         mask = actions > 0.5
-        action_sorted_idxs = actions.argsort()
-        units_to_prod_idxs = action_sorted_idxs[mask]
+        action_asort = actions.argsort()
+        action_asort_filtered = action_asort[mask]
+        action_asort_filtered = np.flip(action_asort_filtered)
 
-        for unit_idx in units_to_prod_idxs:
-            unit_type_id = UnitTypeId(unit_idx)
-            if self.can_afford(unit_type_id):
-                # could produce multiple of the same type
-                await self.do(larvae.random.train(unit_type_id))
+        for action_idx in action_asort_filtered:
+            unit_id = C.ZERG_UNITS_LARVATRAINABLE_IDS[action_idx]
+            unit_type_id = UnitTypeId(unit_id)
+            ability_id = self._game_data.units[unit_type_id.value].creation_ability.id
+
+            larva = self.units(UnitTypeId.LARVA).random
+            abilities = await self.get_available_abilities(larva)
+            if ability_id in abilities:
+                await self.do(larva.train(unit_type_id))
 
     @property
     def military_action_size(self):
@@ -75,16 +80,17 @@ class ActionExecutioner():
         - to_actions(*)
         '''
         todo_actions = []
-        actions_vec_idx = 0
+        idx = 0
 
         for control_group in self.control_groups:
             group_units = control_group.select_units(self.units)
 
-            for ability in C.ZERG_MILITARY_ABILITIES:
-                if actions[actions_vec_idx] > 0.5:
-                    ability_id = AbilityId(ability_id)
-                    target = Point2([actions[actions_vec_idx + 1], actions[actions_vec_idx + 2]])
-                    
+            for ability_id in C.ZERG_MILITARY_ABILITIES_IDS:
+                ability_id = AbilityId(ability_id)
+                priority, pos0, pos1 = actions[idx], actions[idx + 1], actions[idx + 2]
+                target = Point2([pos0, pos1])
+
+                if priority > 0.5:
                     for unit in group_units:
                         if ability["target"] == "None" and await self.can_cast(unit, ability_id):
                             todo_actions.append(unit(ability_id))
@@ -94,7 +100,7 @@ class ActionExecutioner():
                                 todo_actions.append(unit(ability_id, target_unit))
                     # end group_units
             # end abilities
-                actions_vec_idx += 3
+                idx += 3
         # end control_groups
         await self.do_actions(todo_actions)
 
