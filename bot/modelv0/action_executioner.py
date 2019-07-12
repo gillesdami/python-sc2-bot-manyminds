@@ -10,7 +10,12 @@ class ActionExecutioner():
     def __init__(self):
         self.action_logger = setup_logger('action', self.out_ns + '.action.log')
 
-    def log(self, action, target='<none>', actor='<none>'):
+    # TODO scale_position
+
+    def feed_interest_map(self, position: Point2):
+        self.interest_map[int(round(position[0])), int(round(position[1]))] += 1
+
+    def log_action(self, action, target='<none>', actor='<none>'):
         if isinstance(action, AbilityId):
             name = self._game_data.abilities[action.value].name
         else:
@@ -38,11 +43,13 @@ class ActionExecutioner():
 
         for idx in np.flip(priorities_sorted_idxs):
             unit_typeid = C.ZERG_BUILDINGS_ZERGBUILD_TYPEIDS[idx]
+            position = Point2([round(actions[idx + 1]), round(actions[idx + 2])])
+
+            self.feed_interest_map(position)
             
             if priorities[idx] > 0.5 and self.can_afford(unit_typeid):
-                position = Point2([idx + 1, idx + 2])
                 await self.build(unit_typeid, near=position)
-                self.log(unit_typeid, position.rounded)
+                self.log_action(unit_typeid, position.rounded)
                 break
     
     @property
@@ -74,7 +81,7 @@ class ActionExecutioner():
                 abilities = await self.get_available_abilities(larva)
                 if ability_id in abilities:
                     await self.do(larva.train(unit_type_id))
-                    self.log(unit_type_id)
+                    self.log_action(unit_type_id)
 
     @property
     def military_action_size(self):
@@ -103,6 +110,8 @@ class ActionExecutioner():
                 priority, pos0, pos1 = actions[idx], actions[idx + 1], actions[idx + 2]
                 target = Point2([pos0, pos1])
 
+                self.feed_interest_map(target)
+
                 if priority > 0.5:
                     for unit in group_units:
                         if ability["target"] == "None" and await self.can_cast(unit, ability_id):
@@ -112,7 +121,7 @@ class ActionExecutioner():
                             if await self.can_cast(unit, ability_id):
                                 todo_actions.append(unit(ability_id, target_unit))
                     # end group_units
-                    self.log(ability_id, target, control_group)
+                    self.log_action(ability_id, target, control_group)
             # end abilities
                 idx += 3
         # end control_groups

@@ -1,12 +1,14 @@
 import json
 import logging
 
+import numpy as np
 import sc2
 from torch import Tensor
 from torch.nn import LSTM
 
 from .action_executioner import ActionExecutioner
 from .state_view import StateView
+from .utils import setup_logger
 
 class Bot(sc2.BotAI, StateView, ActionExecutioner):
     def __init__(self, in_state_path: str, out_ns: str):
@@ -17,12 +19,16 @@ class Bot(sc2.BotAI, StateView, ActionExecutioner):
 
         self.history = {}
         self.general_logger = logging.getLogger(__name__)
+        self.learning_logger = setup_logger('learning', self.out_ns + 'learning.log')
 
         self.general_logger.info('TODO load from %s', self.in_state_path)
 
     def on_start(self):
         StateView.__init__(self)
         ActionExecutioner.__init__(self)
+
+        # heatmap of actions location
+        self.interest_map = np.zeros((self.map_size[0], self.map_size[1]), dtype=np.int) 
 
         self.build_model = LSTM(
             self.building_view_size, 
@@ -72,3 +78,6 @@ class Bot(sc2.BotAI, StateView, ActionExecutioner):
     def on_end(self, game_result: sc2.data.Result):
         print(game_result)
         self.general_logger.info('TODO save to %s', self.out_ns)
+
+        interest_map = '\n'.join([','.join([str(cell) for cell in row]) for row in self.interest_map])
+        self.learning_logger.info('Action heatmap:\n' + interest_map)

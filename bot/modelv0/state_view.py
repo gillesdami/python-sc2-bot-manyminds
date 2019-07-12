@@ -34,6 +34,8 @@ class StateView():
     @staticmethod
     def zero_pad_1d(array, final_length):
         return np.pad(array, (0, final_length - len(array)), mode='constant')
+    
+    # TODO unscale_position
 
     ## control group update
     async def on_unit_destroyed(self, unit_tag):
