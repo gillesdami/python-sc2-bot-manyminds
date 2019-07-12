@@ -38,7 +38,7 @@ ZERG_MILITARY_ABILITIES = list(map(
     lambda a_id: next(filter(lambda a: a['id'] == a_id, RAW['Ability'])), 
     ZERG_MILITARY_ABILITIES_IDS))
 ZERG_LARVATRAIN_ABILITIES = list(filter(lambda a: a['name'].startswith('LARVATRAIN_'), RAW['Ability']))
-ZERG_ZERGBUILD_ABILITIES = list(filter(lambda a: a['name'].startswith('ZERGBUILD_') and a['name'] != 'ZERGBUILD_CANCEL', RAW['Ability']))
+ZERG_ZERGBUILD_ABILITIES = list(filter(lambda a: a['name'].startswith('ZERGBUILD_') and a['name'] != 'ZERGBUILD_CANCEL' and a['name'] != 'ZERGBUILD_CREEPTUMOR', RAW['Ability']))
 #### UNITS
 ZERG_UNITS_IDS = list(map(lambda u: u['id'], ZERG_UNITS))
 ZERG_MILITARY_IDS = list(map(lambda u: u['id'], ZERG_MILITARY))

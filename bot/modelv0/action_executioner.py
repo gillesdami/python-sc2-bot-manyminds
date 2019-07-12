@@ -4,10 +4,19 @@ from sc2.ids.ability_id import AbilityId
 from sc2.position import Point2
 
 from . import constants as C
+from .utils import setup_logger
 
 class ActionExecutioner():
     def __init__(self):
-        pass
+        self.action_logger = setup_logger('action', self.out_ns + '.action.log')
+
+    def log(self, action, target='<none>', actor='<none>'):
+        if isinstance(action, AbilityId):
+            name = self._game_data.abilities[action.value].name
+        else:
+            name = self._game_data.units[action.value].name
+
+        self.action_logger.info('%s at %s by %s' % (name, target, actor))
 
     @property
     def building_action_size(self):
@@ -33,6 +42,7 @@ class ActionExecutioner():
             if priorities[idx] > 0.5 and self.can_afford(unit_typeid):
                 position = Point2([idx + 1, idx + 2])
                 await self.build(unit_typeid, near=position)
+                self.log(unit_typeid, position.rounded)
                 break
     
     @property
@@ -58,10 +68,13 @@ class ActionExecutioner():
             unit_type_id = UnitTypeId(unit_id)
             ability_id = self._game_data.units[unit_type_id.value].creation_ability.id
 
-            larva = self.units(UnitTypeId.LARVA).random
-            abilities = await self.get_available_abilities(larva)
-            if ability_id in abilities:
-                await self.do(larva.train(unit_type_id))
+            larvas = self.units(UnitTypeId.LARVA)
+            if larvas.exists:
+                larva = larvas.random
+                abilities = await self.get_available_abilities(larva)
+                if ability_id in abilities:
+                    await self.do(larva.train(unit_type_id))
+                    self.log(unit_type_id)
 
     @property
     def military_action_size(self):
@@ -99,6 +112,7 @@ class ActionExecutioner():
                             if await self.can_cast(unit, ability_id):
                                 todo_actions.append(unit(ability_id, target_unit))
                     # end group_units
+                    self.log(ability_id, target, control_group)
             # end abilities
                 idx += 3
         # end control_groups
