@@ -10,6 +10,8 @@ with open("bot/modelv0/const.json", "r") as h:
 
 ## TRAINING_SETTINGS
 LR = 0.01
+MODEL_DEPTH = 1
+MODEL_HIDDEN_SIZE = 1000
 
 ## SHARED_SETTINGS
 CONTROL_GROUPS_COUNT = 10

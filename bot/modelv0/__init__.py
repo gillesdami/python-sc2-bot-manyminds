@@ -3,10 +3,10 @@ import logging
 
 import numpy as np
 import sc2
-from torch import Tensor
-from torch.nn import LSTM
 
+from . import constants as C
 from .action_executioner import ActionExecutioner
+from .model import AttentionLSTM
 from .state_view import StateView
 from .utils import setup_logger
 
@@ -27,21 +27,25 @@ class Bot(sc2.BotAI, StateView, ActionExecutioner):
         StateView.__init__(self)
         ActionExecutioner.__init__(self)
 
+        self.learning_logger.info('map size: %s', str(self.map_size))
+
         # heatmap of actions location
         self.interest_map = np.zeros((self.map_size[0], self.map_size[1]), dtype=np.int) 
 
-        self.build_model = LSTM(
-            self.building_view_size, 
-            self.building_action_size, 
-            batch_first=True)
-        self.production_model = LSTM(
-            self.production_view_size, 
-            self.production_action_size, 
-            batch_first=True)
-        self.military_model = LSTM(
-            self.military_view_size, 
-            self.military_action_size, 
-            batch_first=True)
+        self.build_model = AttentionLSTM(
+            self.building_view_size,
+            C.MODEL_HIDDEN_SIZE,
+            self.building_action_size)
+        
+        self.production_model = AttentionLSTM(
+            self.production_view_size,
+            C.MODEL_HIDDEN_SIZE,
+            self.production_action_size)
+
+        self.military_model = AttentionLSTM(
+            self.military_view_size,
+            C.MODEL_HIDDEN_SIZE,
+            self.military_action_size)
         
         self.general_logger.info('Model initialization succeed')
 
@@ -66,11 +70,12 @@ class Bot(sc2.BotAI, StateView, ActionExecutioner):
             self.history['predic%d' % (iteration % 3)] = []
             self.history['reward%d' % (iteration % 3)] = []
 
+        model.zero_grad()
+
         view = viewer()
-        output, (h_n, c_n) = model(Tensor(view.reshape((1,1,-1))))
-        # **output** of shape `(seq_len, batch, num_directions * hidden_size)`
-        # TODO dense reduce to (hidden_size)
-        await executioner(output.detach().numpy()[0][0])
+        output = model(view)
+        
+        await executioner(output.detach().numpy()[0])
 
         self.history['viewer%d' % (iteration % 3)].append(view)
         self.history['predic%d' % (iteration % 3)].append(output)
