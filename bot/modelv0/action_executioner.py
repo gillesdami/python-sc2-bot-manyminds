@@ -10,18 +10,24 @@ class ActionExecutioner():
     def __init__(self):
         self.action_logger = setup_logger('action', self.out_ns + '.action.log')
 
-    # TODO scale_position
+    def normal_to_mapscale(self, point2):
+        # ([-1, 1], [-1, 1]) -> ([0, self.map_size[0] - 1], [0, self.map_size[1] -1])
+        return Point2([((point2[0] + 1) / 2) * (self.map_size[0] - 1), ((point2[1] + 1) / 2) * (self.map_size[1] - 1)])
 
     def feed_interest_map(self, position: Point2):
         self.interest_map[int(round(position[0])), int(round(position[1]))] += 1
 
     def log_action(self, action, target='<none>', actor='<none>'):
-        if isinstance(action, AbilityId):
-            name = self._game_data.abilities[action.value].name
-        else:
-            name = self._game_data.units[action.value].name
-
-        self.action_logger.info('%s at %s by %s' % (name, target, actor))
+        try:
+            if isinstance(action, AbilityId):
+                name = self._game_data.abilities[action.value].friendly_name
+            else:
+                name = self._game_data.units[action.value].name
+            
+            self.action_logger.info('%s at %s by %s' % (name, target, actor))
+        
+        except KeyError:
+            self.action_logger.warn('%s at %s by %s' % (action.value, target, actor))
 
     @property
     def building_action_size(self):
@@ -43,13 +49,13 @@ class ActionExecutioner():
 
         for idx in np.flip(priorities_sorted_idxs):
             unit_typeid = C.ZERG_BUILDINGS_ZERGBUILD_TYPEIDS[idx]
-            position = Point2([round(actions[idx + 1]), round(actions[idx + 2])])
+            position = self.normal_to_mapscale(Point2([round(actions[idx + 1]), round(actions[idx + 2])]))
 
             self.feed_interest_map(position)
             
             if priorities[idx] > 0.5 and self.can_afford(unit_typeid):
                 await self.build(unit_typeid, near=position)
-                self.log_action(unit_typeid, position.rounded)
+                self.log_action(unit_typeid, position)
                 break
     
     @property
@@ -108,7 +114,7 @@ class ActionExecutioner():
             for ability_id in C.ZERG_MILITARY_ABILITIES_IDS:
                 ability_id = AbilityId(ability_id)
                 priority, pos0, pos1 = actions[idx], actions[idx + 1], actions[idx + 2]
-                target = Point2([pos0, pos1])
+                target = self.normal_to_mapscale(Point2([pos0, pos1]))
 
                 self.feed_interest_map(target)
 
